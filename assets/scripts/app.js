@@ -1,4 +1,6 @@
 class DOMHelper {
+  constructor() {}
+
   handleElementSwitch(projectId, parentElement) {
     const projectElement = document.getElementById(projectId);
     projectElement.closest("ul");
@@ -6,57 +8,86 @@ class DOMHelper {
     const projectElementBtn = projectElement.querySelectorAll("button")[1];
     if (parentElement.id === "finished-projects") {
       projectElementBtn.textContent = "Activate";
-      projectElementBtn.addEventListener(
-        "click",
-        () => {
-          App.onFinishedProjectClick(projectId);
-        },
-        { once: true }
-      );
     } else {
       projectElementBtn.textContent = "Finish";
-      projectElementBtn.addEventListener(
-        "click",
-        () => {
-          App.onHandleActiveClick(projectId);
-        },
-        { once: true }
-      );
     }
+    projectElementBtn.addEventListener(
+      "click",
+      () => this.projectFinishedOrActivateHandler(projectId),
+      {
+        once: true,
+      }
+    );
     parentElement.querySelector("ul").appendChild(projectElement);
     projectElement.scrollIntoView({ behavior: "smooth" });
   }
+
+  detachToolTip(toolTip) {
+    this.element.removeChild(toolTip);
+    this.setToolTipActiveState();
+  }
+
+  appendToolTipToList(text, parentList) {
+    const toolTip = document.createElement("p");
+    toolTip.className = "card";
+    const elmPositionTop = this.element.offsetTop;
+    const elmPositionLeft = this.element.offsetLeft;
+    const elmPositionHeight = this.element.clientHeight;
+
+    const x = elmPositionLeft + 20;
+    const y = elmPositionHeight + elmPositionTop - 30;
+
+    toolTip.style.position = "absolute";
+    toolTip.style.cursor = "pointer";
+    toolTip.style.left = x + "px";
+    toolTip.style.top = y + "px";
+
+    toolTip.textContent = text;
+    toolTip.addEventListener("click", () => this.detachToolTip(toolTip));
+    this.element.appendChild(toolTip);
+  }
 }
 
-class ProjectElement {
-  constructor(id, hookId) {
+class ProjectElement extends DOMHelper {
+  constructor(id, hookId, clickButtonHandler) {
+    super();
     this.id = id;
     this.hookId = hookId;
+    this.hasActiveToolTip = false;
+    this.clickButtonHandler = clickButtonHandler();
     this.render();
   }
   render() {
-    const element = document.getElementById(this.id);
-    const moreInfoButton = element.querySelectorAll("button")[0];
-    if (this.hookId === "active-projects") {
-      const finishProjectButton = element.querySelectorAll("button")[1];
-      finishProjectButton.addEventListener(
-        "click",
-        () => {
-          App.onHandleActiveClick(this.id);
-        },
-        { once: true }
-      );
+    this.element = document.getElementById(this.id);
+    const buttons = this.element.querySelectorAll("button");
+    const moreInfoButton = buttons[0];
+    const finishProjectButton = buttons[1];
+    finishProjectButton.addEventListener(
+      "click",
+      () => this.clickButtonHandler(this.id),
+      { once: true }
+    );
+    moreInfoButton.addEventListener("click", () =>
+      this.toolTipHandler(this.id)
+    );
+  }
+
+  setToolTipActiveState() {
+    if (this.hasActiveToolTip) {
+      this.hasActiveToolTip = false;
     } else {
-      const activateProjectButton = element.querySelectorAll("button")[1];
-      activateProjectButton.addEventListener(
-        "click",
-        () => {
-          App.onFinishedProjectClick(this.id);
-        },
-        { once: true }
-      );
+      this.hasActiveToolTip = true;
     }
-    moreInfoButton.addEventListener("click", () => console.log(element));
+  }
+
+  toolTipHandler(projectId) {
+    if (this.hasActiveToolTip) {
+      return;
+    }
+    const parentListEl = this.element.closest("ul");
+    const textContent = this.element.getAttribute("data-extra-info");
+    this.appendToolTipToList(textContent, parentListEl);
+    this.setToolTipActiveState();
   }
 }
 
@@ -67,7 +98,8 @@ class Project extends DOMHelper {
     super();
     this.hookId = renderHookId;
     this.render();
-    this.switchBackToDefault = () => this.switchProject(this.projects);
+    this.switchBackToDefault = () =>
+      this.switchProject.bind(this, this.projects);
   }
 
   switchProjectHandler = (projectSwitch) => {
@@ -84,42 +116,28 @@ class Project extends DOMHelper {
     this.projects.push(listItems);
     console.log(this.projects);
     for (const item of listItems) {
-      new ProjectElement(item.id, this.hookId);
+      new ProjectElement(item.id, this.hookId, () =>
+        this.projectFinishedOrActivateHandler.bind(this)
+      );
     }
   }
 
-  activeProjectHandler(projectId) {
-    console.log(this.projects);
+  projectFinishedOrActivateHandler(projectId) {
     const projectToAdd = document.getElementById(projectId);
     if (projectToAdd) {
       this.projects.push(projectToAdd);
     }
-    this.switchBackToDefault();
-    const projectToBeRemoved = Array.from(this.projects).find(
-      (project) => project.id === projectId
-    );
-    const parentElement = projectToAdd.closest("section").nextElementSibling;
-    if (projectToBeRemoved) {
-      this.projects.filter((project) => project.id !== projectId);
-      const btn = projectToBeRemoved.querySelectorAll("button")[1];
-      this.handleElementSwitch(projectId, parentElement);
-    }
-  }
 
-  finishProjectHandler(projectId) {
-    const projectElement = document.getElementById(projectId);
-    if (projectElement) {
-      this.projects.push(projectElement);
-    }
     this.switchBackToDefault();
     const projectToBeRemoved = Array.from(this.projects).find(
       (project) => project.id === projectId
     );
-    const parentElement =
-      projectElement.closest("section").previousElementSibling;
+    let parentElement = projectToAdd.closest("section").nextElementSibling;
+    if (projectToAdd.closest("section").id === "finished-projects") {
+      parentElement = projectToAdd.closest("section").previousElementSibling;
+    }
     if (projectToBeRemoved) {
       this.projects.filter((project) => project.id !== projectId);
-      const btn = projectToBeRemoved.querySelectorAll("button")[1];
       this.handleElementSwitch(projectId, parentElement);
     }
   }
@@ -137,13 +155,8 @@ class ProjectDetails {
       finishedProject,
       activeProject.projects
     );
-    activeProject.switchProjectHandler(() => activeProjectSwitch());
-    finishedProject.switchProjectHandler(() => finishedProjectSwitch());
-
-    this.activeProjectHandler =
-      activeProject.activeProjectHandler.bind(activeProject);
-    this.finishProjectHandler =
-      finishedProject.finishProjectHandler.bind(finishedProject);
+    activeProject.switchProjectHandler(activeProjectSwitch);
+    finishedProject.switchProjectHandler(finishedProjectSwitch);
   }
 }
 
@@ -152,16 +165,6 @@ class App {
     const project = new ProjectDetails();
     project.render();
     this.projects = project;
-  }
-
-  static onHandleActiveClick(projectId) {
-    console.log(projectId);
-    this.projects.activeProjectHandler(projectId);
-  }
-
-  static onFinishedProjectClick(projectId) {
-    console.log("Clicked....");
-    this.projects.finishProjectHandler(projectId);
   }
 }
 
