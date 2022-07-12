@@ -28,21 +28,37 @@ class DOMHelper {
   }
 
   appendToolTipToList(text, parentList) {
-    const toolTip = document.createElement("p");
+    const toolTip = document.createElement("div");
     toolTip.className = "card";
     const elmPositionTop = this.element.offsetTop;
     const elmPositionLeft = this.element.offsetLeft;
     const elmPositionHeight = this.element.clientHeight;
+    console.log(elmPositionHeight);
+    const parentElementScorllTop = this.element.parentElement.scrollTop;
+
+    let y = elmPositionHeight + elmPositionTop - parentElementScorllTop - 30;
+
+    this.element.closest("ul").addEventListener("scroll", () => {
+      y =
+        elmPositionHeight +
+        elmPositionTop -
+        30 -
+        this.element.closest("ul").scrollTop;
+      toolTip.style.top = y + "px";
+    });
 
     const x = elmPositionLeft + 20;
-    const y = elmPositionHeight + elmPositionTop - 30;
 
     toolTip.style.position = "absolute";
+    toolTip.style.display = "inline";
     toolTip.style.cursor = "pointer";
     toolTip.style.left = x + "px";
     toolTip.style.top = y + "px";
 
-    toolTip.textContent = text;
+    const toolTipTemplate = document.getElementById("tooltip");
+    const toolTipBody = document.importNode(toolTipTemplate.content, true);
+    toolTipBody.querySelector("p").innerText = text;
+    toolTip.append(toolTipBody)
     toolTip.addEventListener("click", () => this.detachToolTip(toolTip));
     this.element.appendChild(toolTip);
   }
@@ -80,12 +96,12 @@ class ProjectElement extends DOMHelper {
     }
   }
 
-  toolTipHandler(projectId) {
+  toolTipHandler() {
     if (this.hasActiveToolTip) {
       return;
     }
     const parentListEl = this.element.closest("ul");
-    const textContent = this.element.getAttribute("data-extra-info");
+    const textContent = this.element.dataset.extraInfo;
     this.appendToolTipToList(textContent, parentListEl);
     this.setToolTipActiveState();
   }
