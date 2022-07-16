@@ -58,7 +58,7 @@ class DOMHelper {
     const toolTipTemplate = document.getElementById("tooltip");
     const toolTipBody = document.importNode(toolTipTemplate.content, true);
     toolTipBody.querySelector("p").innerText = text;
-    toolTip.append(toolTipBody)
+    toolTip.append(toolTipBody);
     toolTip.addEventListener("click", () => this.detachToolTip(toolTip));
     this.element.appendChild(toolTip);
   }
@@ -72,6 +72,7 @@ class ProjectElement extends DOMHelper {
     this.hasActiveToolTip = false;
     this.clickButtonHandler = clickButtonHandler();
     this.render();
+    this.connectDrag();
   }
   render() {
     this.element = document.getElementById(this.id);
@@ -86,6 +87,13 @@ class ProjectElement extends DOMHelper {
     moreInfoButton.addEventListener("click", () =>
       this.toolTipHandler(this.id)
     );
+  }
+
+  connectDrag() {
+    this.element.addEventListener("dragstart", (event) => {
+      event.dataTransfer.setData("text/plain", this.id);
+      event.dataTransfer.effectAllowed = "move";
+    });
   }
 
   setToolTipActiveState() {
@@ -116,6 +124,38 @@ class Project extends DOMHelper {
     this.render();
     this.switchBackToDefault = () =>
       this.switchProject.bind(this, this.projects);
+    this.connectDropZone();
+  }
+
+  connectDropZone() {
+    const currentProject = document.getElementById(this.hookId);
+    currentProject.addEventListener("dragenter", (event) => {
+      event.preventDefault();
+      if (!event.dataTransfer.types.includes("text/plain")) {
+        return;
+      }
+      currentProject.classList.add("highlight");
+    });
+
+    currentProject.addEventListener("dragover", (event) => {
+      event.preventDefault();
+      if (!event.dataTransfer.types.includes("text/plain")) {
+        return;
+      }
+      currentProject.classList.add("highlight");
+    });
+
+    currentProject.addEventListener("dragleave", (event) => {
+      if (event.relatedTarget.closest("ul") !== currentProject) {
+        currentProject.classList.remove("highlight");
+      }
+      event.preventDefault();
+    });
+
+    currentProject.addEventListener("drop", (event) => {
+      const pid = event.dataTransfer.getData("text/plain");
+      this.projectFinishedOrActivateHandler(pid);
+    });
   }
 
   switchProjectHandler = (projectSwitch) => {
