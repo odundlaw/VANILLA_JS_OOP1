@@ -156,6 +156,11 @@ class Project extends DOMHelper {
       const pid = event.dataTransfer.getData("text/plain");
       this.projectFinishedOrActivateHandler(pid);
     });
+
+    currentProject.addEventListener("dragend", (event) => {
+      currentProject.classList.remove("highlight");
+      event.preventDefault();
+    });
   }
 
   switchProjectHandler = (projectSwitch) => {
